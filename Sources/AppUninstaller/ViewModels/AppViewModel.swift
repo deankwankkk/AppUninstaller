@@ -90,6 +90,23 @@ class AppViewModel: ObservableObject {
         }
     }
 
+    func retryWithPrivilege() {
+        guard let result = removalResult else { return }
+        let failedURLs = result.failedItems.filter { $0.isPermissionError }.map { $0.url }
+        guard !failedURLs.isEmpty else { return }
+
+        state = .removing
+        Task {
+            let retryResult = await removerService.removeWithPrivilege(urls: failedURLs)
+            var updated = removalResult!
+            updated.removedCount += retryResult.removedCount
+            updated.totalBytesFreed += retryResult.totalBytesFreed
+            updated.failedItems = updated.failedItems.filter { !$0.isPermissionError } + retryResult.failedItems
+            removalResult = updated
+            state = .completed
+        }
+    }
+
     func reset() {
         selectedApp = nil
         scanResults = []

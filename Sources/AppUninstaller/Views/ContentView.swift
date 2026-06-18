@@ -157,22 +157,72 @@ struct CompletedView: View {
 
     var body: some View {
         VStack(spacing: 20) {
-            Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: 64))
-                .foregroundStyle(.green)
-
-            Text("卸载完成")
-                .font(.title.bold())
-
             if let result = viewModel.removalResult {
-                VStack(spacing: 8) {
-                    Text("已移除 \(result.removedCount) 个项目")
-                    Text("释放空间: \(formattedSize(result.totalBytesFreed))")
-                        .foregroundStyle(.secondary)
+                if result.failedItems.isEmpty {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 64))
+                        .foregroundStyle(.green)
+                    Text("卸载完成")
+                        .font(.title.bold())
+                } else {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .font(.system(size: 64))
+                        .foregroundStyle(.orange)
+                    Text("部分文件卸载失败")
+                        .font(.title.bold())
+                }
 
-                    if !result.failedItems.isEmpty {
-                        Text("\(result.failedItems.count) 个项目移除失败")
+                VStack(spacing: 8) {
+                    if result.removedCount > 0 {
+                        Text("已移除 \(result.removedCount) 个项目")
+                        Text("释放空间: \(formattedSize(result.totalBytesFreed))")
+                            .foregroundStyle(.secondary)
+                    }
+                }
+
+                if !result.failedItems.isEmpty {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("失败项目 (\(result.failedItems.count))")
+                            .font(.headline)
                             .foregroundStyle(.red)
+
+                        ScrollView {
+                            VStack(alignment: .leading, spacing: 6) {
+                                ForEach(result.failedItems) { item in
+                                    HStack(alignment: .top, spacing: 8) {
+                                        Image(systemName: item.isPermissionError ? "lock.fill" : "xmark.circle.fill")
+                                            .foregroundStyle(item.isPermissionError ? .orange : .red)
+                                            .font(.caption)
+                                            .frame(width: 14, alignment: .center)
+                                            .padding(.top, 2)
+                                        VStack(alignment: .leading, spacing: 2) {
+                                            Text(item.url.path)
+                                                .font(.system(.caption, design: .monospaced))
+                                                .lineLimit(1)
+                                                .truncationMode(.middle)
+                                            Text(item.reason)
+                                                .font(.caption2)
+                                                .foregroundStyle(.secondary)
+                                        }
+                                    }
+                                }
+                            }
+                            .padding(10)
+                        }
+                        .frame(maxHeight: 160)
+                        .background(.quaternary.opacity(0.5))
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                    }
+                    .frame(maxWidth: 500)
+
+                    if result.hasPermissionErrors {
+                        Button {
+                            viewModel.retryWithPrivilege()
+                        } label: {
+                            Label("以管理员权限重试", systemImage: "lock.open.fill")
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(.orange)
                     }
                 }
             }
@@ -180,7 +230,7 @@ struct CompletedView: View {
             Button("完成") {
                 viewModel.reset()
             }
-            .buttonStyle(.borderedProminent)
+            .buttonStyle(.bordered)
         }
         .padding()
     }
